@@ -276,7 +276,27 @@ function renderTudo() {
   document.getElementById('hdr-sub').textContent = membros.length + ' pessoas · ' + aprovados.length + ' gastos aprovados';
 
   var totalAprov = aprovados.reduce(function(s, g) { return s + parseFloat(g.valor_total); }, 0);
-  var totalPend = saldo.reduce(function(s, d) { return s + parseFloat(d.total); }, 0);
+
+  // Pendente = parcelas aprovadas ainda não pagas (excluindo o próprio pagador)
+  var totalPend = 0;
+  aprovados.forEach(function(g) {
+    (g.participantes || []).forEach(function(p) {
+      if (p.telefone !== g.proposto_por_telefone && p.status_pagamento !== 'pago') {
+        totalPend += parseFloat(p.valor);
+      }
+    });
+  });
+
+  // Pago = parcelas já confirmadas e validadas
+  var totalPago = 0;
+  aprovados.forEach(function(g) {
+    (g.participantes || []).forEach(function(p) {
+      if (p.telefone !== g.proposto_por_telefone && p.status_pagamento === 'pago') {
+        totalPago += parseFloat(p.valor);
+      }
+    });
+  });
+
   document.getElementById('s-total').textContent = fmt(totalAprov);
   document.getElementById('s-pend').textContent = fmt(totalPend);
 

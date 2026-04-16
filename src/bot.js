@@ -96,6 +96,30 @@ async function handleMetaMessage(telefone, mensagem, nomeWhatsApp) {
 
   const grupoAtivo = await db.getGrupoAtivo(telefone);
   const grupos = await db.getGruposDoUsuario(telefone);
+
+  // Se já tem nome e tem rateios → mostra menu direto no código, sem depender do modelo
+  const temNome = usuario.nome && !usuario.nome.startsWith('User_');
+  const mensagemBaixa = mensagem.trim().toLowerCase();
+  const ehComandoEspecifico = mensagemBaixa.startsWith('criar ') || mensagemBaixa.match(/^[A-Z0-9]{4,6}$/i) || mensagemBaixa.startsWith('entrar ');
+  if (temNome && grupos.length > 0 && !ehComandoEspecifico) {
+    const base = process.env.BASE_URL || 'https://splitry-bot-production.up.railway.app';
+    let menu = `Olá, *${usuario.nome}*! 👋 O que deseja fazer?
+
+`;
+    menu += `*Seus rateios:*
+`;
+    grupos.forEach(g => { menu += `• ${g.nome} → ${base}/r/${g.codigo}
+`; });
+    menu += `
+Responda *criar [nome]* para novo rateio`;
+    menu += `
+ou *entrar [CÓDIGO]* para entrar em um existente`;
+    await db.salvarMensagem(telefone, grupoAtivo?.id || null, 'user', mensagem);
+    await db.salvarMensagem(telefone, grupoAtivo?.id || null, 'assistant', menu);
+    await enviarMensagem(telefone, menu);
+    return;
+  }
+
   const contexto = buildContexto(usuario, grupoAtivo, grupos);
   const grupoId = grupoAtivo?.id || null;
   const historico = await db.getHistorico(telefone, grupoId);

@@ -63,7 +63,7 @@ app.get('/api/r/:codigo', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno' }); }
 });
 
-app.post('/api/r/:codigo/gasto', async (req, res) => {
+app.post('/api/r/:codigo/gasto', upload.none(), async (req, res) => {
   try {
     const grupo = await db.verificarCodigo(req.params.codigo);
     if (!grupo) return res.status(404).json({ error: 'Não encontrado' });

@@ -123,11 +123,12 @@
 </div>
 
 <div class="container">
-  <div class="who-bar">
-    <span class="who-label">Você é:</span>
-    <select id="sel-eu" onchange="salvarEu()">
-      <option value="">— selecione —</option>
-    </select>
+  <div class="who-bar" id="who-bar">
+    <div id="who-display" style="display:flex;align-items:center;gap:8px;flex:1">
+      <div class="av g" id="who-av" style="width:28px;height:28px;font-size:12px"></div>
+      <span id="who-nome" style="font-size:13px;font-weight:500"></span>
+    </div>
+    <button onclick="abrirIdentidade()" style="font-size:12px;color:var(--green);background:none;border:none;cursor:pointer;white-space:nowrap">trocar</button>
   </div>
   <div id="tab-saldo"></div>
   <div id="tab-gastos" style="display:none"></div>
@@ -135,6 +136,21 @@
 </div>
 
 <button class="fab" onclick="abrirModalGasto()">+</button>
+
+<!-- Modal: Identidade -->
+<div class="overlay" id="modal-id" onclick="fecharSeOverlay(event,'modal-id')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Quem é você?</div>
+    <p style="font-size:13px;color:var(--gray);margin-bottom:16px">Digite seu nome e telefone para identificar suas ações neste rateio.</p>
+    <div class="field"><label>Seu nome</label><input id="id-nome" placeholder="Ex: Yan"></div>
+    <div class="field"><label>Seu telefone (com DDD, sem +)</label><input id="id-tel" type="tel" placeholder="5511999999999"></div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="fecharModal('modal-id')">Cancelar</button>
+      <button class="btn-confirm" onclick="salvarIdentidade()">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <!-- Modal: Novo gasto -->
 <div class="overlay" id="modal-gasto" onclick="fecharSeOverlay(event,'modal-gasto')">
@@ -191,6 +207,36 @@ var euNome = localStorage.getItem('eu_nome_' + CODIGO) || '';
 var tabAtiva = 'saldo';
 var pendingPag = {};
 
+function abrirIdentidade() {
+  document.getElementById('id-nome').value = euNome;
+  document.getElementById('id-tel').value = euTelefone;
+  document.getElementById('modal-id').classList.add('show');
+  document.getElementById('id-nome').focus();
+}
+
+function salvarIdentidade() {
+  var nome = document.getElementById('id-nome').value.trim();
+  var tel = document.getElementById('id-tel').value.trim().replace(/\D/g, '');
+  if (!nome || !tel) { toast('Preencha nome e telefone'); return; }
+  euNome = nome;
+  euTelefone = tel;
+  localStorage.setItem('eu_nome_' + CODIGO, euNome);
+  localStorage.setItem('eu_tel_' + CODIGO, euTelefone);
+  fecharModal('modal-id');
+  atualizarWhoBar();
+  renderTab();
+}
+
+function atualizarWhoBar() {
+  if (euNome) {
+    document.getElementById('who-av').textContent = euNome[0].toUpperCase();
+    document.getElementById('who-nome').textContent = euNome;
+  } else {
+    document.getElementById('who-av').textContent = '?';
+    document.getElementById('who-nome').textContent = 'Toque para se identificar';
+  }
+}
+
 function fmt(v) { return 'R$' + parseFloat(v || 0).toFixed(2); }
 
 function ic(d) {
@@ -234,13 +280,11 @@ function renderTudo() {
   document.getElementById('s-total').textContent = fmt(totalAprov);
   document.getElementById('s-pend').textContent = fmt(totalPend);
 
-  var sel = document.getElementById('sel-eu');
-  var html = '<option value="">— selecione —</option>';
-  membros.forEach(function(m) {
-    html += '<option value="' + m.telefone + '"' + (m.telefone === euTelefone ? ' selected' : '') + '>' + m.nome + '</option>';
-  });
-  sel.innerHTML = html;
-
+  // Se não tem identidade ainda, abre o modal
+  if (!euTelefone || !euNome) {
+    setTimeout(function() { abrirIdentidade(); }, 500);
+  }
+  atualizarWhoBar();
   renderTab();
 }
 
@@ -398,15 +442,7 @@ function setTab(tab) {
   renderTab();
 }
 
-function salvarEu() {
-  var sel = document.getElementById('sel-eu');
-  euTelefone = sel.value;
-  var opt = sel.options[sel.selectedIndex];
-  euNome = opt ? opt.textContent : '';
-  localStorage.setItem('eu_tel_' + CODIGO, euTelefone);
-  localStorage.setItem('eu_nome_' + CODIGO, euNome);
-  renderTab();
-}
+// salvarEu replaced by salvarIdentidade
 
 function abrirModalGasto() {
   if (!euTelefone) { toast('Selecione quem você é primeiro'); return; }
@@ -540,6 +576,7 @@ function toast(msg) {
   setTimeout(function() { t.classList.remove('show'); }, 3000);
 }
 
+atualizarWhoBar();
 carregar();
 setInterval(carregar, 20000);
 </script>

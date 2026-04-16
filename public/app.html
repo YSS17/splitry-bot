@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Splitry</title>
+  <style>
+    :root{
+      --green:#16a34a;--green-d:#15803d;--green-l:#dcfce7;--green-m:#22c55e;
+      --red:#dc2626;--red-l:#fee2e2;--amber:#d97706;--amber-l:#fef3c7;
+      --gray:#6b7280;--bg:#f0fdf4;--white:#fff;--border:#e5e7eb;
+      --shadow:0 2px 8px rgba(0,0,0,.06);--radius:14px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:#111;min-height:100vh;padding-bottom:80px}
+    .header{background:linear-gradient(135deg,var(--green-d),var(--green));color:#fff;padding:20px 16px 28px}
+    .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .logo{font-size:12px;font-weight:700;letter-spacing:2px;opacity:.8;text-transform:uppercase}
+    .codigo-pill{background:rgba(255,255,255,.2);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;letter-spacing:1px}
+    .header h1{font-size:22px;font-weight:700}
+    .header-sub{font-size:13px;opacity:.75;margin-top:2px}
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px;margin-top:-18px;position:relative;z-index:2}
+    .stat{background:var(--white);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+    .stat-label{font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+    .stat-value{font-size:22px;font-weight:700}
+    .stat-value.g{color:var(--green)}.stat-value.r{color:var(--red)}
+    .tabs{display:flex;padding:14px 14px 0;gap:6px;position:sticky;top:0;background:var(--bg);z-index:10;padding-top:12px}
+    .tab{flex:1;padding:9px 4px;border-radius:10px;border:none;font-size:13px;font-weight:500;cursor:pointer;background:var(--white);color:var(--gray);transition:all .15s}
+    .tab.active{background:var(--green);color:#fff}
+    .container{padding:12px 14px;max-width:520px;margin:0 auto}
+    .who-bar{background:var(--white);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:12px;box-shadow:var(--shadow)}
+    .who-bar select{flex:1;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;background:var(--bg);color:#111;outline:none}
+    .who-label{font-size:12px;color:var(--gray);white-space:nowrap}
+    .saldo-card{background:var(--white);border-radius:var(--radius);padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow)}
+    .av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0}
+    .av.g{background:var(--green)}.av.r{background:var(--red)}.av.a{background:var(--amber)}
+    .saldo-info{flex:1;min-width:0}
+    .saldo-nome{font-weight:600;font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .saldo-sub{font-size:12px;color:var(--gray)}
+    .saldo-val{font-weight:700;color:var(--red);white-space:nowrap;font-size:15px}
+    .gasto-card{background:var(--white);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)}
+    .gasto-head{display:flex;align-items:center;gap:10px;padding:14px}
+    .gasto-icon{width:42px;height:42px;border-radius:10px;background:var(--green-l);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+    .gasto-meta{flex:1;min-width:0}
+    .gasto-desc{font-weight:600;font-size:15px;display:block}
+    .gasto-by{font-size:12px;color:var(--gray)}
+    .gasto-total{font-weight:700;font-size:16px;white-space:nowrap}
+    .status-pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;margin-left:8px}
+    .sp-pendente{background:var(--amber-l);color:var(--amber)}
+    .sp-aprovado{background:var(--green-l);color:var(--green)}
+    .sp-rejeitado{background:var(--red-l);color:var(--red)}
+    .prog-bar{height:3px;background:var(--border);margin:0 14px 4px}
+    .prog-fill{height:100%;background:var(--green-m);border-radius:2px;transition:width .4s}
+    .prog-lbl{font-size:11px;color:var(--gray);padding:0 14px 8px;text-align:right}
+    .parts-list{border-top:1px solid var(--border)}
+    .part-row{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border)}
+    .part-row:last-child{border-bottom:none}
+    .part-av{width:30px;height:30px;border-radius:50%;background:var(--green-l);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+    .part-info{flex:1;min-width:0}
+    .part-nome{font-size:13px;font-weight:500;display:block}
+    .part-val{font-size:12px;color:var(--gray)}
+    .part-actions{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+    .badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;white-space:nowrap}
+    .badge.pago{background:var(--green-l);color:var(--green)}
+    .badge.aguard{background:var(--amber-l);color:var(--amber)}
+    .badge.pend{background:var(--border);color:var(--gray)}
+    .btn-sm{border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+    .btn-green{background:var(--green);color:#fff}
+    .btn-red{background:var(--red);color:#fff}
+    .btn-ghost{background:var(--border);color:#333}
+    .ver-comp{font-size:11px;color:var(--green);text-decoration:underline;cursor:pointer}
+    .aprovar-bar{display:flex;gap:6px;padding:8px 14px;background:#fffbf5;border-top:1px solid var(--border)}
+    .fab{position:fixed;bottom:20px;right:20px;width:54px;height:54px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 16px rgba(22,163,74,.4);z-index:50;display:flex;align-items:center;justify-content:center}
+    .empty{text-align:center;padding:40px 20px;color:var(--gray)}
+    .empty-icon{font-size:40px;margin-bottom:12px}
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-end;justify-content:center}
+    .overlay.show{display:flex}
+    .sheet{background:var(--white);border-radius:20px 20px 0 0;padding:20px 18px 36px;width:100%;max-width:520px;animation:su .2s ease;max-height:90vh;overflow-y:auto}
+    @keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+    .sheet-title{font-size:17px;font-weight:700;margin-bottom:16px}
+    .field{margin-bottom:14px}
+    .field label{display:block;font-size:13px;font-weight:500;color:var(--gray);margin-bottom:6px}
+    .field input,.field select,.field textarea{width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:var(--bg);color:#111}
+    .field input:focus,.field select:focus{border-color:var(--green)}
+    .checkbox-list{display:flex;flex-direction:column;gap:8px}
+    .check-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;font-size:14px}
+    .check-item input{width:16px;height:16px;accent-color:var(--green)}
+    .upload-box{border:2px dashed var(--border);border-radius:10px;padding:18px;text-align:center;cursor:pointer;font-size:13px;color:var(--gray)}
+    .upload-box:hover{border-color:var(--green)}
+    .upload-box input{display:none}
+    .preview-img{width:100%;border-radius:8px;margin-top:10px;display:none}
+    .sheet-btns{display:flex;gap:8px;margin-top:16px}
+    .sheet-btns button{flex:1;padding:13px;border-radius:12px;border:none;font-size:15px;font-weight:600;cursor:pointer}
+    .btn-cancel{background:var(--border);color:#333}
+    .btn-confirm{background:var(--green);color:#fff}
+    .btn-confirm:disabled{opacity:.6}
+    .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:300;display:none;white-space:nowrap}
+    .toast.show{display:block}
+    .sec-label{font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <span class="logo">Splitry</span>
+    <span class="codigo-pill" id="hdr-codigo"></span>
+  </div>
+  <h1 id="hdr-nome">Carregando...</h1>
+  <div class="header-sub" id="hdr-sub"></div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-label">Total gasto</div><div class="stat-value g" id="s-total">R$0,00</div></div>
+  <div class="stat"><div class="stat-label">Pendente</div><div class="stat-value r" id="s-pend">R$0,00</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" id="tab-btn-saldo" onclick="setTab('saldo')">Saldo</button>
+  <button class="tab" id="tab-btn-gastos" onclick="setTab('gastos')">Gastos</button>
+  <button class="tab" id="tab-btn-membros" onclick="setTab('membros')">Membros</button>
+</div>
+
+<div class="container">
+  <div class="who-bar">
+    <span class="who-label">Você é:</span>
+    <select id="sel-eu" onchange="salvarEu()">
+      <option value="">— selecione —</option>
+    </select>
+  </div>
+  <div id="tab-saldo"></div>
+  <div id="tab-gastos" style="display:none"></div>
+  <div id="tab-membros" style="display:none"></div>
+</div>
+
+<button class="fab" onclick="abrirModalGasto()">+</button>
+
+<!-- Modal: Novo gasto -->
+<div class="overlay" id="modal-gasto" onclick="fecharSeOverlay(event,'modal-gasto')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Novo gasto</div>
+    <div class="field"><label>Descrição</label><input id="g-desc" placeholder="Ex: Jantar, Uber, Mercado..."></div>
+    <div class="field"><label>Valor total (R$)</label><input id="g-valor" type="number" step="0.01" placeholder="0.00" oninput="atualizarPreview()"></div>
+    <div class="field"><label>Excluir da divisão (opcional)</label><div class="checkbox-list" id="g-excluir"></div></div>
+    <div id="g-preview" style="font-size:13px;color:var(--gray);margin-bottom:12px"></div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="fecharModal('modal-gasto')">Cancelar</button>
+      <button class="btn-confirm" onclick="enviarGasto()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmar pagamento -->
+<div class="overlay" id="modal-pagar" onclick="fecharSeOverlay(event,'modal-pagar')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Confirmar pagamento</div>
+    <div id="mp-sub" style="font-size:14px;color:var(--gray);margin-bottom:6px"></div>
+    <div id="mp-val" style="font-size:28px;font-weight:700;color:var(--green);margin-bottom:16px"></div>
+    <div class="upload-box" onclick="document.getElementById('mp-file').click()">
+      <input type="file" id="mp-file" accept="image/*" onchange="prevComp(this)">
+      <div>Anexar comprovante (opcional)</div>
+      <img class="preview-img" id="mp-prev">
+    </div>
+    <div class="sheet-btns" style="margin-top:14px">
+      <button class="btn-cancel" onclick="fecharModal('modal-pagar')">Cancelar</button>
+      <button class="btn-confirm" id="mp-btn" onclick="enviarPagamento()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ver comprovante -->
+<div class="overlay" id="modal-comp" onclick="fecharSeOverlay(event,'modal-comp')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Comprovante</div>
+    <img id="comp-img" style="width:100%;border-radius:10px;margin-bottom:16px">
+    <button class="btn-confirm" style="width:100%;padding:13px;border-radius:12px;border:none;font-size:15px;font-weight:600;cursor:pointer;background:var(--green);color:#fff" onclick="fecharModal('modal-comp')">Fechar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var CODIGO = window.location.pathname.split('/').pop();
+var dados = null;
+var euTelefone = localStorage.getItem('eu_tel_' + CODIGO) || '';
+var euNome = localStorage.getItem('eu_nome_' + CODIGO) || '';
+var tabAtiva = 'saldo';
+var pendingPag = {};
+
+function fmt(v) { return 'R$' + parseFloat(v || 0).toFixed(2); }
+
+function ic(d) {
+  var s = (d || '').toLowerCase();
+  if (s.indexOf('uber') >= 0 || s.indexOf('taxi') >= 0 || s.indexOf('99') >= 0) return '🚗';
+  if (s.indexOf('jantar') >= 0 || s.indexOf('almo') >= 0 || s.indexOf('restaur') >= 0 || s.indexOf('pizza') >= 0) return '🍽️';
+  if (s.indexOf('mercado') >= 0 || s.indexOf('superm') >= 0) return '🛒';
+  if (s.indexOf('bar') >= 0 || s.indexOf('cerveja') >= 0 || s.indexOf('drink') >= 0) return '🍺';
+  if (s.indexOf('hotel') >= 0 || s.indexOf('hosped') >= 0 || s.indexOf('airbnb') >= 0) return '🏨';
+  if (s.indexOf('ingresso') >= 0 || s.indexOf('show') >= 0 || s.indexOf('cinema') >= 0) return '🎟️';
+  return '💳';
+}
+
+function carregar() {
+  fetch('/api/r/' + CODIGO)
+    .then(function(r) {
+      if (!r.ok) { document.body.innerHTML = '<div style="text-align:center;padding:60px;color:#666"><h2>Rateio não encontrado</h2></div>'; return null; }
+      return r.json();
+    })
+    .then(function(d) {
+      if (!d) return;
+      dados = d;
+      renderTudo();
+    })
+    .catch(function(e) { console.error(e); });
+}
+
+function renderTudo() {
+  var grupo = dados.grupo;
+  var membros = dados.membros;
+  var gastos = dados.gastos;
+  var saldo = dados.saldo;
+
+  document.getElementById('hdr-codigo').textContent = CODIGO;
+  document.getElementById('hdr-nome').textContent = grupo.nome;
+  var aprovados = gastos.filter(function(g) { return g.status === 'aprovado'; });
+  document.getElementById('hdr-sub').textContent = membros.length + ' pessoas · ' + aprovados.length + ' gastos aprovados';
+
+  var totalAprov = aprovados.reduce(function(s, g) { return s + parseFloat(g.valor_total); }, 0);
+  var totalPend = saldo.reduce(function(s, d) { return s + parseFloat(d.total); }, 0);
+  document.getElementById('s-total').textContent = fmt(totalAprov);
+  document.getElementById('s-pend').textContent = fmt(totalPend);
+
+  var sel = document.getElementById('sel-eu');
+  var html = '<option value="">— selecione —</option>';
+  membros.forEach(function(m) {
+    html += '<option value="' + m.telefone + '"' + (m.telefone === euTelefone ? ' selected' : '') + '>' + m.nome + '</option>';
+  });
+  sel.innerHTML = html;
+
+  renderTab();
+}
+
+function renderTab() {
+  if (tabAtiva === 'saldo') renderSaldo();
+  else if (tabAtiva === 'gastos') renderGastos();
+  else renderMembros();
+}
+
+function renderSaldo() {
+  var gastos = dados.gastos;
+  var saldo = dados.saldo;
+  var grupo = dados.grupo;
+  var el = document.getElementById('tab-saldo');
+  var html = '';
+
+  var pendAprov = gastos.filter(function(g) { return g.status === 'pendente'; });
+  if (pendAprov.length > 0 && euTelefone === grupo.criado_por) {
+    html += '<div class="sec-label">Aguardando aprovação</div>';
+    pendAprov.forEach(function(g) {
+      html += '<div class="gasto-card" style="border:1.5px solid var(--amber-l)">';
+      html += '<div class="gasto-head"><div class="gasto-icon">' + ic(g.descricao) + '</div>';
+      html += '<div class="gasto-meta"><span class="gasto-desc">' + g.descricao + '</span><span class="gasto-by">proposto por ' + g.proposto_por_nome + '</span></div>';
+      html += '<div class="gasto-total">' + fmt(g.valor_total) + '</div></div>';
+      html += '<div class="aprovar-bar">';
+      html += '<button class="btn-sm btn-green" onclick="aprovar(' + g.id + ')">Aprovar</button>';
+      html += '<button class="btn-sm btn-red" onclick="rejeitar(' + g.id + ')">Rejeitar</button>';
+      html += '</div></div>';
+    });
+  }
+
+  if (euTelefone === grupo.criado_por) {
+    var aguardando = [];
+    gastos.filter(function(g) { return g.status === 'aprovado'; }).forEach(function(g) {
+      (g.participantes || []).filter(function(p) { return p.status_pagamento === 'aguardando_validacao'; }).forEach(function(p) {
+        aguardando.push({ gasto: g, part: p });
+      });
+    });
+    if (aguardando.length > 0) {
+      html += '<div class="sec-label">Pagamentos para validar</div>';
+      aguardando.forEach(function(item) {
+        var g = item.gasto; var p = item.part;
+        html += '<div class="saldo-card" style="border:1.5px solid var(--green-l)">';
+        html += '<div class="av a">' + p.nome[0] + '</div>';
+        html += '<div class="saldo-info"><span class="saldo-nome">' + p.nome + '</span><span class="saldo-sub">' + g.descricao + '</span></div>';
+        html += '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">';
+        html += '<span style="font-weight:700;color:var(--green)">' + fmt(p.valor) + '</span>';
+        if (p.comprovante_url) html += '<span class="ver-comp" onclick="verComp(\'' + p.comprovante_url + '\')">ver comprovante</span>';
+        else html += '<span style="font-size:11px;color:var(--gray)">sem comprovante</span>';
+        html += '<div style="display:flex;gap:4px">';
+        html += '<button class="btn-sm btn-green" onclick="validarPag(' + g.id + ',\'' + p.telefone + '\',\'' + p.nome + '\')">✓</button>';
+        html += '<button class="btn-sm btn-red" onclick="rejeitarPag(' + g.id + ',\'' + p.telefone + '\')">✗</button>';
+        html += '</div></div></div>';
+      });
+    }
+  }
+
+  if (saldo.length === 0) {
+    html += '<div class="empty"><div class="empty-icon">✅</div><p>Tudo zerado! Ninguém deve nada.</p></div>';
+  } else {
+    html += '<div class="sec-label">Saldo atual</div>';
+    saldo.forEach(function(s) {
+      html += '<div class="saldo-card">';
+      html += '<div class="av r">' + s.devedor_nome[0] + '</div>';
+      html += '<div class="saldo-info"><span class="saldo-nome">' + s.devedor_nome + '</span><span class="saldo-sub">deve para ' + s.credor_nome + '</span></div>';
+      html += '<span class="saldo-val">' + fmt(s.total) + '</span></div>';
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+function renderGastos() {
+  var gastos = dados.gastos;
+  var el = document.getElementById('tab-gastos');
+  if (gastos.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">💸</div><p>Nenhum gasto ainda.<br>Toque + para adicionar.</p></div>';
+    return;
+  }
+
+  var html = '';
+  gastos.forEach(function(g) {
+    var parts = (g.participantes || []).filter(function(p) { return p.telefone !== g.proposto_por_telefone; });
+    var pagos = parts.filter(function(p) { return p.status_pagamento === 'pago'; }).length;
+    var prog = parts.length > 0 ? Math.round(pagos / parts.length * 100) : 100;
+
+    var spClass = g.status === 'aprovado' ? 'sp-aprovado' : g.status === 'pendente' ? 'sp-pendente' : 'sp-rejeitado';
+    var spText = g.status === 'aprovado' ? '✓ aprovado' : g.status === 'pendente' ? '⏳ aguardando' : '✗ rejeitado';
+
+    html += '<div class="gasto-card">';
+    html += '<div class="gasto-head"><div class="gasto-icon">' + ic(g.descricao) + '</div>';
+    html += '<div class="gasto-meta"><span class="gasto-desc">' + g.descricao + '<span class="status-pill ' + spClass + '">' + spText + '</span></span>';
+    html += '<span class="gasto-by">Pago por ' + g.proposto_por_nome + '</span></div>';
+    html += '<div class="gasto-total">' + fmt(g.valor_total) + '</div></div>';
+
+    if (g.status === 'aprovado') {
+      html += '<div class="prog-bar"><div class="prog-fill" style="width:' + prog + '%"></div></div>';
+      html += '<div class="prog-lbl">' + pagos + ' de ' + parts.length + ' confirmados</div>';
+    }
+
+    html += '<div class="parts-list">';
+    parts.forEach(function(p) {
+      var souEu = p.telefone === euTelefone;
+      var acoes = '';
+      if (p.status_pagamento === 'pendente' && souEu) {
+        acoes = '<button class="btn-sm btn-green" onclick="abrirModalPagar(' + g.id + ',\'' + p.telefone + '\',\'' + p.nome + '\',' + p.valor + ')">Paguei</button>';
+      } else if (p.status_pagamento === 'aguardando_validacao') {
+        acoes = '<span class="badge aguard">Em análise</span>';
+        if (p.comprovante_url) acoes += '<span class="ver-comp" onclick="verComp(\'' + p.comprovante_url + '\')">comprovante</span>';
+      } else if (p.status_pagamento === 'pago') {
+        acoes = '<span class="badge pago">✓ Pago</span>';
+        if (p.comprovante_url) acoes += '<span class="ver-comp" onclick="verComp(\'' + p.comprovante_url + '\')">comprovante</span>';
+      } else {
+        acoes = '<span class="badge pend">Pendente</span>';
+      }
+      html += '<div class="part-row">';
+      html += '<div class="part-av">' + p.nome[0] + '</div>';
+      html += '<div class="part-info"><span class="part-nome">' + p.nome + (souEu ? ' (você)' : '') + '</span><span class="part-val">' + fmt(p.valor) + '</span></div>';
+      html += '<div class="part-actions">' + acoes + '</div></div>';
+    });
+    html += '</div>';
+
+    if (g.status === 'pendente' && euTelefone === dados.grupo.criado_por) {
+      html += '<div class="aprovar-bar">';
+      html += '<button class="btn-sm btn-green" onclick="aprovar(' + g.id + ')">✓ Aprovar</button>';
+      html += '<button class="btn-sm btn-red" onclick="rejeitar(' + g.id + ')">✗ Rejeitar</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+function renderMembros() {
+  var membros = dados.membros;
+  var grupo = dados.grupo;
+  var el = document.getElementById('tab-membros');
+  var html = '<div style="font-size:13px;color:var(--gray);margin-bottom:12px;background:var(--white);padding:12px;border-radius:var(--radius)">';
+  html += 'Compartilhe este link para convidar:<br><span style="font-weight:600;color:var(--green);word-break:break-all">' + window.location.href + '</span></div>';
+  membros.forEach(function(m) {
+    html += '<div class="saldo-card"><div class="av g">' + m.nome[0] + '</div>';
+    html += '<div class="saldo-info"><span class="saldo-nome">' + m.nome + (m.telefone === grupo.criado_por ? ' 👑' : '') + '</span>';
+    html += '<span class="saldo-sub">' + (m.telefone === grupo.criado_por ? 'organizador' : 'membro') + '</span></div></div>';
+  });
+  el.innerHTML = html;
+}
+
+function setTab(tab) {
+  tabAtiva = tab;
+  ['saldo','gastos','membros'].forEach(function(t) {
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+  renderTab();
+}
+
+function salvarEu() {
+  var sel = document.getElementById('sel-eu');
+  euTelefone = sel.value;
+  var opt = sel.options[sel.selectedIndex];
+  euNome = opt ? opt.textContent : '';
+  localStorage.setItem('eu_tel_' + CODIGO, euTelefone);
+  localStorage.setItem('eu_nome_' + CODIGO, euNome);
+  renderTab();
+}
+
+function abrirModalGasto() {
+  if (!euTelefone) { toast('Selecione quem você é primeiro'); return; }
+  var membros = dados.membros;
+  document.getElementById('g-desc').value = '';
+  document.getElementById('g-valor').value = '';
+  document.getElementById('g-preview').textContent = '';
+  var html = '';
+  membros.forEach(function(m) {
+    if (m.telefone !== euTelefone) {
+      html += '<label class="check-item"><input type="checkbox" value="' + m.telefone + '" onchange="atualizarPreview()"> ' + m.nome + '</label>';
+    }
+  });
+  document.getElementById('g-excluir').innerHTML = html;
+  document.getElementById('modal-gasto').classList.add('show');
+}
+
+function atualizarPreview() {
+  var val = parseFloat(document.getElementById('g-valor').value) || 0;
+  var excl = [];
+  document.querySelectorAll('#g-excluir input:checked').forEach(function(c) { excl.push(c.value); });
+  var total = dados.membros.length - excl.length;
+  if (val > 0 && total > 0) {
+    document.getElementById('g-preview').textContent = 'Cada um paga: ' + fmt(val / total) + ' (' + total + ' pessoas)';
+  }
+}
+
+function enviarGasto() {
+  var desc = document.getElementById('g-desc').value.trim();
+  var valor = parseFloat(document.getElementById('g-valor').value);
+  if (!desc || !valor) { toast('Preencha descrição e valor'); return; }
+  var excl = [];
+  document.querySelectorAll('#g-excluir input:checked').forEach(function(c) { excl.push(c.value); });
+  var fd = new FormData();
+  fd.append('descricao', desc);
+  fd.append('valor', valor);
+  fd.append('proposto_por_telefone', euTelefone);
+  fd.append('proposto_por_nome', euNome);
+  fd.append('participantes_excluidos', JSON.stringify(excl));
+  fetch('/api/r/' + CODIGO + '/gasto', { method: 'POST', body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      fecharModal('modal-gasto');
+      carregar();
+      toast(d.status === 'aprovado' ? 'Gasto adicionado!' : 'Enviado para aprovação');
+      setTab('gastos');
+    })
+    .catch(function() { toast('Erro ao adicionar'); });
+}
+
+function aprovar(gastoId) {
+  if (!euTelefone) { toast('Selecione quem você é'); return; }
+  fetch('/api/r/' + CODIGO + '/gasto/' + gastoId + '/aprovar', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telefone: euTelefone })
+  }).then(function() { carregar(); toast('Gasto aprovado!'); });
+}
+
+function rejeitar(gastoId) {
+  if (!euTelefone) { toast('Selecione quem você é'); return; }
+  fetch('/api/r/' + CODIGO + '/gasto/' + gastoId + '/rejeitar', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telefone: euTelefone })
+  }).then(function() { carregar(); toast('Gasto rejeitado'); });
+}
+
+function abrirModalPagar(gastoId, tel, nome, valor) {
+  pendingPag = { gastoId: gastoId, tel: tel, nome: nome, valor: valor };
+  document.getElementById('mp-sub').textContent = nome + ', confirme seu pagamento:';
+  document.getElementById('mp-val').textContent = fmt(valor);
+  document.getElementById('mp-prev').style.display = 'none';
+  document.getElementById('mp-file').value = '';
+  document.getElementById('modal-pagar').classList.add('show');
+}
+
+function prevComp(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = document.getElementById('mp-prev');
+    img.src = e.target.result;
+    img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function enviarPagamento() {
+  var btn = document.getElementById('mp-btn');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  var fd = new FormData();
+  fd.append('telefone', pendingPag.tel);
+  fd.append('nome', pendingPag.nome);
+  var file = document.getElementById('mp-file').files[0];
+  if (file) fd.append('comprovante', file);
+  fetch('/api/r/' + CODIGO + '/gasto/' + pendingPag.gastoId + '/confirmar', { method: 'POST', body: fd })
+    .then(function() {
+      fecharModal('modal-pagar');
+      carregar();
+      toast('Enviado para validação!');
+    })
+    .catch(function() { toast('Erro ao confirmar'); })
+    .finally(function() { btn.disabled = false; btn.textContent = 'Confirmar'; });
+}
+
+function validarPag(gastoId, devedorTel, devedorNome) {
+  fetch('/api/r/' + CODIGO + '/gasto/' + gastoId + '/validar', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telefone_criador: euTelefone, telefone_devedor: devedorTel, nome_devedor: devedorNome })
+  }).then(function() { carregar(); toast('Pagamento validado!'); });
+}
+
+function rejeitarPag(gastoId, devedorTel) {
+  fetch('/api/r/' + CODIGO + '/gasto/' + gastoId + '/rejeitar-pagamento', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telefone_criador: euTelefone, telefone_devedor: devedorTel })
+  }).then(function() { carregar(); toast('Comprovante rejeitado'); });
+}
+
+function verComp(url) {
+  document.getElementById('comp-img').src = url;
+  document.getElementById('modal-comp').classList.add('show');
+}
+
+function fecharModal(id) { document.getElementById(id).classList.remove('show'); }
+function fecharSeOverlay(e, id) { if (e.target.id === id) fecharModal(id); }
+
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+
+carregar();
+setInterval(carregar, 20000);
+</script>
+</body>
+</html>

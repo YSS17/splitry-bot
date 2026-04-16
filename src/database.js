@@ -2,18 +2,13 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('railway.internal')
-    ? false
-    : { rejectUnauthorized: false }
+  ssl: process.env.DATABASE_URL?.includes('railway.internal') ? false : { rejectUnauthorized: false }
 });
 
 async function query(text, params) {
   const client = await pool.connect();
-  try {
-    return await client.query(text, params);
-  } finally {
-    client.release();
-  }
+  try { return await client.query(text, params); }
+  finally { client.release(); }
 }
 
 async function init() {
@@ -43,21 +38,23 @@ async function init() {
       grupo_id INTEGER NOT NULL,
       descricao TEXT NOT NULL,
       valor_total NUMERIC NOT NULL,
-      pago_por_telefone TEXT NOT NULL,
-      pago_por_nome TEXT NOT NULL,
-      data DATE DEFAULT CURRENT_DATE,
+      proposto_por_telefone TEXT NOT NULL,
+      proposto_por_nome TEXT NOT NULL,
+      status TEXT DEFAULT 'pendente',
+      comprovante_url TEXT,
       criado_em TIMESTAMP DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS parcelas (
-      id SERIAL PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS participantes_gasto (
       gasto_id INTEGER NOT NULL,
-      devedor_telefone TEXT NOT NULL,
-      devedor_nome TEXT NOT NULL,
+      telefone TEXT NOT NULL,
+      nome TEXT NOT NULL,
       valor NUMERIC NOT NULL,
-      pago BOOLEAN DEFAULT FALSE,
+      status_pagamento TEXT DEFAULT 'pendente',
       comprovante_url TEXT,
-      confirmado_em TIMESTAMP
+      confirmado_em TIMESTAMP,
+      validado_em TIMESTAMP,
+      PRIMARY KEY (gasto_id, telefone)
     );
 
     CREATE TABLE IF NOT EXISTS grupo_ativo (
@@ -74,7 +71,7 @@ async function init() {
       criado_em TIMESTAMP DEFAULT NOW()
     );
   `);
-  console.log('Banco PostgreSQL iniciado!');
+  console.log('PostgreSQL iniciado!');
 }
 
 // ─── Usuários ────────────────────────────────────────────────
@@ -85,11 +82,8 @@ async function getUsuario(telefone) {
 }
 
 async function salvarUsuario(telefone, nome) {
-  await query(`
-    INSERT INTO usuarios (telefone, nome) VALUES ($1, $2)
-    ON CONFLICT (telefone) DO UPDATE SET nome = $2
-  `, [telefone, nome]);
-  await query('UPDATE membros_grupo SET nome = $1 WHERE telefone = $2', [nome, telefone]);
+  await query('INSERT INTO usuarios (telefone, nome) VALUES ($1,$2) ON CONFLICT (telefone) DO UPDATE SET nome=$2', [telefone, nome]);
+  await query('UPDATE membros_grupo SET nome=$1 WHERE telefone=$2', [nome, telefone]);
   return getUsuario(telefone);
 }
 
@@ -97,7 +91,7 @@ async function garantirUsuario(telefone, nomeWhatsApp) {
   const u = await getUsuario(telefone);
   if (!u) {
     const nome = nomeWhatsApp || `User_${telefone.slice(-4)}`;
-    await query('INSERT INTO usuarios (telefone, nome) VALUES ($1, $2) ON CONFLICT DO NOTHING', [telefone, nome]);
+    await query('INSERT INTO usuarios (telefone, nome) VALUES ($1,$2) ON CONFLICT DO NOTHING', [telefone, nome]);
   } else if (nomeWhatsApp && u.nome.startsWith('User_')) {
     await salvarUsuario(telefone, nomeWhatsApp);
   }
@@ -114,125 +108,127 @@ async function criarGrupo(nome, telefone, nomeUsuario) {
   let codigo;
   do {
     codigo = gerarCodigo();
-    const existe = await query('SELECT id FROM grupos WHERE codigo = $1', [codigo]);
-    if (existe.rows.length === 0) break;
+    const r = await query('SELECT id FROM grupos WHERE codigo=$1', [codigo]);
+    if (r.rows.length === 0) break;
   } while (true);
 
-  const r = await query(
-    'INSERT INTO grupos (nome, codigo, criado_por) VALUES ($1, $2, $3) RETURNING *',
-    [nome, codigo, telefone]
-  );
+  const r = await query('INSERT INTO grupos (nome, codigo, criado_por) VALUES ($1,$2,$3) RETURNING *', [nome, codigo, telefone]);
   const grupo = r.rows[0];
-  await query('INSERT INTO membros_grupo (grupo_id, telefone, nome) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [grupo.id, telefone, nomeUsuario]);
+  await query('INSERT INTO membros_grupo (grupo_id, telefone, nome) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [grupo.id, telefone, nomeUsuario]);
   await setGrupoAtivo(telefone, grupo.id);
   return grupo;
 }
 
 async function entrarGrupo(codigo, telefone, nomeUsuario) {
-  const r = await query('SELECT * FROM grupos WHERE codigo = $1', [codigo.toUpperCase()]);
+  const r = await query('SELECT * FROM grupos WHERE codigo=$1', [codigo.toUpperCase()]);
   const grupo = r.rows[0];
   if (!grupo) return null;
-  await query('INSERT INTO membros_grupo (grupo_id, telefone, nome) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [grupo.id, telefone, nomeUsuario]);
+  await query('INSERT INTO membros_grupo (grupo_id, telefone, nome) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [grupo.id, telefone, nomeUsuario]);
   await setGrupoAtivo(telefone, grupo.id);
   return grupo;
 }
 
 async function verificarCodigo(codigo) {
-  const r = await query('SELECT * FROM grupos WHERE codigo = $1', [codigo.toUpperCase()]);
+  const r = await query('SELECT * FROM grupos WHERE codigo=$1', [codigo.toUpperCase()]);
   return r.rows[0] || null;
 }
 
-async function getGrupo(grupoId) {
-  const r = await query('SELECT * FROM grupos WHERE id = $1', [grupoId]);
+async function getGrupo(id) {
+  const r = await query('SELECT * FROM grupos WHERE id=$1', [id]);
   return r.rows[0] || null;
 }
 
 async function getGruposDoUsuario(telefone) {
-  const r = await query(`
-    SELECT g.* FROM grupos g
-    JOIN membros_grupo m ON m.grupo_id = g.id
-    WHERE m.telefone = $1 ORDER BY g.id DESC
-  `, [telefone]);
+  const r = await query('SELECT g.* FROM grupos g JOIN membros_grupo m ON m.grupo_id=g.id WHERE m.telefone=$1 ORDER BY g.id DESC', [telefone]);
   return r.rows;
 }
 
 async function getMembros(grupoId) {
-  const r = await query('SELECT * FROM membros_grupo WHERE grupo_id = $1', [grupoId]);
+  const r = await query('SELECT * FROM membros_grupo WHERE grupo_id=$1 ORDER BY nome', [grupoId]);
   return r.rows;
 }
 
 async function setGrupoAtivo(telefone, grupoId) {
-  await query(`
-    INSERT INTO grupo_ativo (telefone, grupo_id) VALUES ($1, $2)
-    ON CONFLICT (telefone) DO UPDATE SET grupo_id = $2
-  `, [telefone, grupoId]);
+  await query('INSERT INTO grupo_ativo (telefone, grupo_id) VALUES ($1,$2) ON CONFLICT (telefone) DO UPDATE SET grupo_id=$2', [telefone, grupoId]);
 }
 
 async function getGrupoAtivo(telefone) {
-  const r = await query('SELECT grupo_id FROM grupo_ativo WHERE telefone = $1', [telefone]);
+  const r = await query('SELECT grupo_id FROM grupo_ativo WHERE telefone=$1', [telefone]);
   if (r.rows[0]) return getGrupo(r.rows[0].grupo_id);
   const grupos = await getGruposDoUsuario(telefone);
-  return grupos.length > 0 ? grupos[0] : null;
+  return grupos[0] || null;
 }
 
 // ─── Gastos ──────────────────────────────────────────────────
 
-async function salvarGasto(grupoId, descricao, valorTotal, pagadorTel, pagadorNome, parcelas) {
-  const r = await query(`
-    INSERT INTO gastos (grupo_id, descricao, valor_total, pago_por_telefone, pago_por_nome)
-    VALUES ($1, $2, $3, $4, $5) RETURNING id
-  `, [grupoId, descricao, valorTotal, pagadorTel, pagadorNome]);
-
+async function criarGasto(grupoId, descricao, valorTotal, propostoPorTel, propostoPorNome, participantes, status = 'pendente') {
+  const r = await query(
+    'INSERT INTO gastos (grupo_id, descricao, valor_total, proposto_por_telefone, proposto_por_nome, status) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
+    [grupoId, descricao, valorTotal, propostoPorTel, propostoPorNome, status]
+  );
   const gastoId = r.rows[0].id;
-  for (const p of parcelas) {
-    await query(`
-      INSERT INTO parcelas (gasto_id, devedor_telefone, devedor_nome, valor)
-      VALUES ($1, $2, $3, $4)
-    `, [gastoId, p.telefone, p.nome, p.valor]);
+  for (const p of participantes) {
+    await query(
+      'INSERT INTO participantes_gasto (gasto_id, telefone, nome, valor) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING',
+      [gastoId, p.telefone, p.nome, p.valor]
+    );
   }
   return gastoId;
 }
 
-async function getGasto(gastoId) {
-  const r = await query('SELECT * FROM gastos WHERE id = $1', [gastoId]);
-  return r.rows[0] || null;
+async function aprovarGasto(gastoId) {
+  await query("UPDATE gastos SET status='aprovado' WHERE id=$1", [gastoId]);
 }
 
-async function getParcelas(gastoId) {
-  const r = await query('SELECT * FROM parcelas WHERE gasto_id = $1', [gastoId]);
+async function rejeitarGasto(gastoId) {
+  await query("UPDATE gastos SET status='rejeitado' WHERE id=$1", [gastoId]);
+}
+
+async function getGastos(grupoId) {
+  const r = await query('SELECT * FROM gastos WHERE grupo_id=$1 ORDER BY criado_em DESC', [grupoId]);
   return r.rows;
 }
 
-async function getUltimoGasto(grupoId) {
-  const r = await query('SELECT * FROM gastos WHERE grupo_id = $1 ORDER BY id DESC LIMIT 1', [grupoId]);
+async function getGasto(gastoId) {
+  const r = await query('SELECT * FROM gastos WHERE id=$1', [gastoId]);
   return r.rows[0] || null;
 }
 
-async function confirmarPagamento(gastoId, devedorTel, comprovanteUrl) {
-  await query(`
-    UPDATE parcelas SET pago = TRUE, confirmado_em = NOW(), comprovante_url = $3
-    WHERE gasto_id = $1 AND devedor_telefone = $2
-  `, [gastoId, devedorTel, comprovanteUrl || null]);
+async function getParticipantes(gastoId) {
+  const r = await query('SELECT * FROM participantes_gasto WHERE gasto_id=$1', [gastoId]);
+  return r.rows;
+}
+
+async function confirmarPagamento(gastoId, telefone, comprovanteUrl) {
+  await query(
+    "UPDATE participantes_gasto SET status_pagamento='aguardando_validacao', comprovante_url=$3, confirmado_em=NOW() WHERE gasto_id=$1 AND telefone=$2",
+    [gastoId, telefone, comprovanteUrl || null]
+  );
+}
+
+async function validarPagamento(gastoId, telefone) {
+  await query(
+    "UPDATE participantes_gasto SET status_pagamento='pago', validado_em=NOW() WHERE gasto_id=$1 AND telefone=$2",
+    [gastoId, telefone]
+  );
+}
+
+async function rejeitarPagamento(gastoId, telefone) {
+  await query(
+    "UPDATE participantes_gasto SET status_pagamento='pendente', comprovante_url=NULL, confirmado_em=NULL WHERE gasto_id=$1 AND telefone=$2",
+    [gastoId, telefone]
+  );
 }
 
 async function getSaldoGrupo(grupoId) {
   const r = await query(`
-    SELECT p.devedor_telefone, p.devedor_nome,
-           g.pago_por_telefone, g.pago_por_nome,
-           SUM(p.valor) as total
-    FROM parcelas p
-    JOIN gastos g ON g.id = p.gasto_id
-    WHERE g.grupo_id = $1 AND p.pago = FALSE
-    GROUP BY p.devedor_telefone, p.devedor_nome, g.pago_por_telefone, g.pago_por_nome
-  `, [grupoId]);
-  return r.rows;
-}
-
-async function getGastosDoMes(grupoId) {
-  const r = await query(`
-    SELECT * FROM gastos
-    WHERE grupo_id = $1 AND date_trunc('month', data) = date_trunc('month', CURRENT_DATE)
-    ORDER BY id DESC
+    SELECT pg.telefone as devedor_telefone, pg.nome as devedor_nome,
+           g.proposto_por_telefone as credor_telefone, g.proposto_por_nome as credor_nome,
+           SUM(pg.valor) as total
+    FROM participantes_gasto pg
+    JOIN gastos g ON g.id = pg.gasto_id
+    WHERE g.grupo_id=$1 AND g.status='aprovado' AND pg.status_pagamento != 'pago'
+    GROUP BY pg.telefone, pg.nome, g.proposto_por_telefone, g.proposto_por_nome
   `, [grupoId]);
   return r.rows;
 }
@@ -241,26 +237,22 @@ async function getGastosDoMes(grupoId) {
 
 async function getHistorico(telefone, grupoId, limite = 15) {
   const r = grupoId
-    ? await query(`SELECT role, conteudo FROM historico WHERE telefone = $1 AND grupo_id = $2 ORDER BY id DESC LIMIT $3`, [telefone, grupoId, limite])
-    : await query(`SELECT role, conteudo FROM historico WHERE telefone = $1 AND grupo_id IS NULL ORDER BY id DESC LIMIT $2`, [telefone, limite]);
+    ? await query('SELECT role, conteudo FROM historico WHERE telefone=$1 AND grupo_id=$2 ORDER BY id DESC LIMIT $3', [telefone, grupoId, limite])
+    : await query('SELECT role, conteudo FROM historico WHERE telefone=$1 AND grupo_id IS NULL ORDER BY id DESC LIMIT $2', [telefone, limite]);
   return r.rows.reverse();
 }
 
 async function salvarMensagem(telefone, grupoId, role, conteudo) {
-  await query('INSERT INTO historico (telefone, grupo_id, role, conteudo) VALUES ($1, $2, $3, $4)', [telefone, grupoId, role, conteudo]);
-  await query(`
-    DELETE FROM historico WHERE telefone = $1 AND id NOT IN (
-      SELECT id FROM historico WHERE telefone = $1 ORDER BY id DESC LIMIT 40
-    )
-  `, [telefone]);
+  await query('INSERT INTO historico (telefone, grupo_id, role, conteudo) VALUES ($1,$2,$3,$4)', [telefone, grupoId, role, conteudo]);
+  await query('DELETE FROM historico WHERE telefone=$1 AND id NOT IN (SELECT id FROM historico WHERE telefone=$1 ORDER BY id DESC LIMIT 40)', [telefone]);
 }
 
 module.exports = {
-  init,
+  init, query,
   getUsuario, salvarUsuario, garantirUsuario,
   criarGrupo, entrarGrupo, verificarCodigo, getGrupo, getGruposDoUsuario, getMembros,
   setGrupoAtivo, getGrupoAtivo,
-  salvarGasto, getGasto, getParcelas, getUltimoGasto, confirmarPagamento,
-  getSaldoGrupo, getGastosDoMes,
+  criarGasto, aprovarGasto, rejeitarGasto, getGastos, getGasto, getParticipantes,
+  confirmarPagamento, validarPagamento, rejeitarPagamento, getSaldoGrupo,
   getHistorico, salvarMensagem,
 };

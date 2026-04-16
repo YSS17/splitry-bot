@@ -167,6 +167,11 @@ app.get('/r/:codigo', (req, res) => {
 });
 
 app.get('/', (_req, res) => res.send('Splitry rodando!'));
+app.get('/privacy', (_req, res) => res.sendFile(path.join(__dirname, '../public/privacy.html')));
+app.get('/icon', (_req, res) => {
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.send('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="220" fill="#16a34a"/><text x="512" y="680" font-size="580" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" fill="white">S</text></svg>');
+});
 
 db.init().then(() => {
   const PORT = process.env.PORT || 3000;

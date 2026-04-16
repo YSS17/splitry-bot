@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidade — Splitry</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap');
+    :root { --green: #16a34a; --green-l: #dcfce7; --gray: #6b7280; --bg: #f9fafb; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: #111; line-height: 1.7; }
+    header { background: linear-gradient(135deg, #15803d, #16a34a); color: white; padding: 40px 20px; text-align: center; }
+    .logo { font-family: 'DM Serif Display', serif; font-size: 32px; margin-bottom: 8px; }
+    header p { font-size: 14px; opacity: .8; }
+    .container { max-width: 680px; margin: 0 auto; padding: 40px 20px 80px; }
+    h2 { font-size: 18px; font-weight: 600; color: var(--green); margin: 32px 0 10px; }
+    p { font-size: 15px; color: #374151; margin-bottom: 12px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 15px; color: #374151; margin-bottom: 6px; }
+    .card { background: white; border-radius: 16px; padding: 24px; margin-bottom: 16px; border: 1px solid #e5e7eb; }
+    .updated { font-size: 13px; color: var(--gray); text-align: center; margin-top: 40px; }
+    a { color: var(--green); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Splitry</div>
+    <p>Divisão de despesas via WhatsApp</p>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h2>1. Sobre o Splitry</h2>
+      <p>O Splitry é um serviço de divisão de despesas que funciona via WhatsApp e página web. Permite que grupos de pessoas registrem gastos, dividam valores e controlem pagamentos de forma simples.</p>
+    </div>
+
+    <div class="card">
+      <h2>2. Dados que coletamos</h2>
+      <p>Para o funcionamento do serviço, coletamos:</p>
+      <ul>
+        <li>Número de telefone do WhatsApp</li>
+        <li>Nome fornecido pelo usuário</li>
+        <li>Mensagens enviadas ao bot para processar comandos</li>
+        <li>Valores e descrições de gastos registrados</li>
+        <li>Imagens de comprovantes de pagamento enviadas voluntariamente</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>3. Como usamos os dados</h2>
+      <p>Os dados coletados são usados exclusivamente para:</p>
+      <ul>
+        <li>Identificar o usuário dentro de um grupo de rateio</li>
+        <li>Registrar e dividir gastos entre os membros</li>
+        <li>Enviar notificações sobre novos gastos e pagamentos</li>
+        <li>Exibir o saldo e histórico de transações</li>
+      </ul>
+      <p>Não vendemos, compartilhamos ou usamos seus dados para fins publicitários.</p>
+    </div>
+
+    <div class="card">
+      <h2>4. Armazenamento</h2>
+      <p>Os dados são armazenados em banco de dados seguro (PostgreSQL) hospedado na Railway. Comprovantes de pagamento são armazenados no servidor do serviço.</p>
+      <p>Os dados são mantidos enquanto o usuário utilizar o serviço. Não realizamos backups externos dos dados pessoais.</p>
+    </div>
+
+    <div class="card">
+      <h2>5. WhatsApp e Meta</h2>
+      <p>O Splitry utiliza a WhatsApp Business API fornecida pela Meta. As mensagens trocadas com o bot seguem também as políticas de privacidade do WhatsApp e da Meta Platforms.</p>
+      <p>Não armazenamos o conteúdo completo das conversas — apenas os comandos necessários para o funcionamento do serviço.</p>
+    </div>
+
+    <div class="card">
+      <h2>6. Seus direitos</h2>
+      <p>Você pode a qualquer momento:</p>
+      <ul>
+        <li>Solicitar a exclusão dos seus dados enviando uma mensagem ao bot com "excluir minha conta"</li>
+        <li>Parar de usar o serviço simplesmente não interagindo mais com o bot</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>7. Contato</h2>
+      <p>Dúvidas sobre esta política podem ser enviadas diretamente pelo WhatsApp para o número do Splitry.</p>
+    </div>
+
+    <p class="updated">Última atualização: Abril de 2026</p>
+  </div>
+</body>
+</html>

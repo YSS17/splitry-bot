@@ -148,6 +148,19 @@ app.post('/api/r/:codigo/gasto/:gastoId/rejeitar-pagamento', async (req, res) =>
   } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
+// API: entrar no rateio pela página web
+app.post('/api/r/:codigo/entrar', async (req, res) => {
+  try {
+    const grupo = await db.verificarCodigo(req.params.codigo);
+    if (!grupo) return res.status(404).json({ error: 'Rateio não encontrado' });
+    const { telefone, nome } = req.body;
+    if (!telefone || !nome) return res.status(400).json({ error: 'Nome e telefone obrigatórios' });
+    await db.salvarUsuario(telefone, nome);
+    await db.entrarGrupo(req.params.codigo, telefone, nome);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno' }); }
+});
+
 // SPA — serve o HTML estático
 app.get('/r/:codigo', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/app.html'));

@@ -443,7 +443,18 @@ function renderMembros() {
   var membros = dados.membros;
   var grupo = dados.grupo;
   var el = document.getElementById('tab-membros');
-  var html = '<div style="font-size:13px;color:var(--gray);margin-bottom:12px;background:var(--white);padding:12px;border-radius:var(--radius)">';
+  var jaMembro = membros.some(function(m) { return m.telefone === euTelefone; });
+  var html = '';
+
+  // Botão entrar se ainda não é membro
+  if (!jaMembro && euTelefone) {
+    html += '<div style="background:var(--green-l);border-radius:var(--radius);padding:14px;margin-bottom:12px;text-align:center">';
+    html += '<p style="font-size:14px;margin-bottom:10px">Você ainda não é membro deste rateio.</p>';
+    html += '<button class="btn-sm btn-green" style="padding:10px 24px;font-size:14px" onclick="entrarNoRateio()">Entrar no rateio</button>';
+    html += '</div>';
+  }
+
+  html += '<div style="font-size:13px;color:var(--gray);margin-bottom:12px;background:var(--white);padding:12px;border-radius:var(--radius)">';
   html += 'Compartilhe este link para convidar:<br><span style="font-weight:600;color:var(--green);word-break:break-all">' + window.location.href + '</span></div>';
   membros.forEach(function(m) {
     html += '<div class="saldo-card"><div class="av g">' + m.nome[0] + '</div>';
@@ -451,6 +462,21 @@ function renderMembros() {
     html += '<span class="saldo-sub">' + (m.telefone === grupo.criado_por ? 'organizador' : 'membro') + '</span></div></div>';
   });
   el.innerHTML = html;
+}
+
+function entrarNoRateio() {
+  if (!euTelefone || !euNome) { abrirIdentidade(); return; }
+  fetch('/api/r/' + CODIGO + '/entrar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telefone: euTelefone, nome: euNome })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) { carregar(); toast('Você entrou no rateio!'); }
+    else toast(d.error || 'Erro ao entrar');
+  })
+  .catch(function() { toast('Erro de conexão'); });
 }
 
 function setTab(tab) {

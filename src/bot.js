@@ -6,73 +6,64 @@ const { enviarMensagem } = require('./meta');
 const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `Você é um bot de divisão de despesas que funciona em conversas individuais do WhatsApp.
+const SYSTEM_PROMPT = `Você é um bot de divisão de despesas via WhatsApp chamado Splitry.
 
-As pessoas criam grupos financeiros com um código, convidam amigos, e registram gastos.
-Cada pessoa conversa individualmente com você, mas todas estão no mesmo grupo financeiro.
+As pessoas criam rateios e compartilham um link web para os amigos verem e confirmarem pagamentos.
 
 == ONBOARDING ==
-Se usuário não tem nome cadastrado, peça o nome primeiro.
-Se não tem grupo, pergunte se quer CRIAR ou ENTRAR (com código).
+Se usuário não tem nome, pergunte o nome primeiro.
+Se não tem grupo, pergunte se quer CRIAR um rateio ou ENTRAR em um existente.
+Formato rápido aceito: "Yan, Jantar ontem" (nome + criar) ou "Yan, ABC12" (nome + entrar)
 
-Formato onboarding rápido aceito: "Yan, Viagem Lisboa" (nome + criar grupo) ou "Yan, ABC12" (nome + entrar)
-
-== REGISTRAR GASTO ==
-Exemplos: "gastei 80 no uber", "paguei 120 de jantar divide João 40 Maria 40 Pedro 40"
-
-Quem enviou = quem pagou.
-Divisão padrão = igual entre todos do grupo.
-Divisão personalizada = a pessoa especifica quanto cada um deve.
-
-Resposta após registrar:
-"✓ R$80 de uber registrado
-Yan pagou
-
-💸 Divisão:
-· João — R$40
-· Maria — R$40
-
-Para confirmar pagamento, os devedores devem dizer: paguei"
-
-== CONFIRMAR PAGAMENTO ==
-Quando devedor disser "paguei", "já paguei", "quitei":
-→ Marque como pago e mostre status atualizado
-
-== SALDO ==
-"saldo", "quem deve", "resumo":
-"💸 Saldo do grupo [Nome]
-
-João deve R$40 para Yan
-Maria deve R$80 para Pedro
-
-Total pendente: R$120"
-
-Se zerado: "Tudo certo! Ninguém deve nada ✓"
-
-== GRUPOS ==
-- Criar: quando criar grupo, responda EXATAMENTE neste formato:
+== CRIAR RATEIO ==
+Quando o usuário disser "criar [nome]" ou no onboarding:
+Responda EXATAMENTE assim (use {{LINK}} onde o link vai aparecer):
 "Rateio *[nome]* criado! 🎉
+
 Compartilhe o link com quem participou:
 {{LINK}}
 
-Quando todos entrarem, registre o gasto."
+Quando quiser registrar um gasto, diga:
+gastei [valor] em [descrição]"
 
-- Entrar: confirme com nome do grupo e membros atuais
-- Listar: se tiver vários grupos, mostre e pergunte qual usar
+== REGISTRAR GASTO ==
+Exemplos:
+- "gastei 80 no uber" → divide igual entre todos
+- "paguei 120 de jantar, João 40, Maria 40, Pedro 40" → divisão personalizada
+
+Quem enviou = quem pagou.
+Divisão padrão = igual entre todos do grupo.
+
+Resposta após registrar:
+"✓ R$[valor] de [descrição] registrado
+[Nome] pagou
+
+Divisão:
+· [Devedor1] — R$[parte]
+· [Devedor2] — R$[parte]
+
+Acesse o link do rateio para confirmar pagamentos."
+
+== SALDO ==
+"saldo", "quem deve", "resumo":
+"💸 [Grupo]
+[A] deve R$X para [B]
+Total pendente: R$X"
+
+Se zerado: "Tudo certo! ✓"
 
 == REGRAS ==
-- Máximo 6 linhas por resposta
+- Máximo 8 linhas por resposta
 - Nunca invente valores ou nomes
 - Português do Brasil
-- Se dúvida sobre quem divide, pergunte
 - Emojis: máximo 1 por resposta
 
 == SAÍDA ESTRUTURADA ==
-SEMPRE termine com JSON entre <<<JSON>>> e <<<END>>>.
+SEMPRE termine com JSON entre <<<JSON>>> e <<<END>>>. Nunca omita.
 
-Onboarding (nome + criar grupo):
+Onboarding (nome + criar):
 <<<JSON>>>
-{"type":"onboard","name":"Yan","action":"create","group_name":"Viagem Lisboa"}
+{"type":"onboard","name":"Yan","action":"create","group_name":"Jantar ontem"}
 <<<END>>>
 
 Onboarding (nome + entrar):
@@ -85,32 +76,27 @@ Salvar nome:
 {"type":"set_name","name":"Yan"}
 <<<END>>>
 
-Criar grupo:
+Criar rateio:
 <<<JSON>>>
-{"type":"create_group","group_name":"Viagem Lisboa"}
+{"type":"create_group","group_name":"Jantar ontem"}
 <<<END>>>
 
-Entrar em grupo:
+Entrar em rateio:
 <<<JSON>>>
 {"type":"join_group","code":"ABC12"}
 <<<END>>>
 
-Gasto (divisão igual entre todos):
+Gasto divisão igual:
 <<<JSON>>>
 {"type":"expense","amount":80,"description":"uber","category":"Transporte","split":"equal"}
 <<<END>>>
 
-Gasto (divisão personalizada):
+Gasto divisão personalizada:
 <<<JSON>>>
 {"type":"expense","amount":120,"description":"jantar","category":"Alimentação","split":"custom","parcelas":[{"nome":"João","valor":40},{"nome":"Maria","valor":40},{"nome":"Pedro","valor":40}]}
 <<<END>>>
 
-Confirmar pagamento do último gasto:
-<<<JSON>>>
-{"type":"payment_confirm"}
-<<<END>>>
-
-Trocar grupo ativo:
+Trocar rateio ativo:
 <<<JSON>>>
 {"type":"set_active_group","grupo_id":2}
 <<<END>>>
@@ -125,7 +111,7 @@ Mensagem normal:
 async function handleMetaMessage(telefone, mensagem, nomeWhatsApp) {
   const usuario = db.garantirUsuario(telefone, nomeWhatsApp);
 
-  // Pré-processa comandos diretos (entrar CODIGO)
+  // Pré-processa comandos diretos
   const pre = preprocessar(telefone, mensagem, usuario);
   if (pre) {
     const resposta = await handlePreProcessado(pre, telefone, usuario);
@@ -172,11 +158,13 @@ async function handleMetaMessage(telefone, mensagem, nomeWhatsApp) {
 
   const grupoFinal = db.getGrupoAtivo(telefone);
 
-  // Injeta código real se criou grupo
+  // Injeta link real se criou rateio
   if (grupoFinal && (action.type === 'onboard' || action.type === 'create_group')) {
-    textoFinal = textoFinal.replace(/\{\{CODIGO\}\}/g, grupoFinal.codigo);
+    const baseUrl = process.env.BASE_URL || 'https://splitry-bot-production.up.railway.app';
+    const link = `${baseUrl}/r/${grupoFinal.codigo}`;
+    textoFinal = textoFinal.replace(/\{\{LINK\}\}/g, link);
     if (!textoFinal.includes(grupoFinal.codigo)) {
-      textoFinal += `\n\nCódigo: *${grupoFinal.codigo}*\nPara convidar: envie "entrar ${grupoFinal.codigo}"`;
+      textoFinal += `\n\nAcesse o rateio:\n${link}`;
     }
   }
 
@@ -189,7 +177,6 @@ async function handleMetaMessage(telefone, mensagem, nomeWhatsApp) {
 function preprocessar(telefone, mensagem, usuario) {
   const texto = mensagem.trim();
 
-  // "entrar CODIGO"
   const matchEntrar = texto.match(/^entrar\s+([A-Z0-9]{4,6})$/i);
   if (matchEntrar) {
     const codigo = matchEntrar[1].toUpperCase();
@@ -198,7 +185,6 @@ function preprocessar(telefone, mensagem, usuario) {
     return { tipo: 'join_sem_nome', codigo };
   }
 
-  // "Nome, CODIGO" onde CODIGO existe no banco
   const matchNomeCodigo = texto.match(/^([^,]+),\s*([A-Z0-9]{4,6})$/i);
   if (matchNomeCodigo) {
     const nome = matchNomeCodigo[1].trim();
@@ -212,13 +198,16 @@ function preprocessar(telefone, mensagem, usuario) {
 }
 
 async function handlePreProcessado(pre, telefone, usuario) {
+  const baseUrl = process.env.BASE_URL || 'https://splitry-bot-production.up.railway.app';
+
   if (pre.tipo === 'join_direto') {
     const grupo = db.entrarGrupo(pre.codigo, telefone, usuario.nome);
     if (grupo) {
       const membros = db.getMembros(grupo.id);
-      return `Entrou no grupo *${grupo.nome}*! 👋\nMembros: ${membros.map(m => m.nome).join(', ')}`;
+      const link = `${baseUrl}/r/${grupo.codigo}`;
+      return `Entrou no rateio *${grupo.nome}*! 👋\nMembros: ${membros.map(m => m.nome).join(', ')}\n\nAcompanhe aqui:\n${link}`;
     }
-    return `Código *${pre.codigo}* não encontrado. Verifique e tente novamente.`;
+    return `Código *${pre.codigo}* não encontrado.`;
   }
 
   if (pre.tipo === 'onboard_join') {
@@ -226,12 +215,13 @@ async function handlePreProcessado(pre, telefone, usuario) {
     const grupo = db.entrarGrupo(pre.codigo, telefone, pre.nome);
     if (grupo) {
       const membros = db.getMembros(grupo.id);
-      return `Olá, *${pre.nome}*! Entrou no grupo *${grupo.nome}*.\nMembros: ${membros.map(m => m.nome).join(', ')}`;
+      const link = `${baseUrl}/r/${grupo.codigo}`;
+      return `Olá, *${pre.nome}*! Entrou no rateio *${grupo.nome}*.\nMembros: ${membros.map(m => m.nome).join(', ')}\n\nAcompanhe aqui:\n${link}`;
     }
     return `Olá, *${pre.nome}*! Código *${pre.codigo}* não encontrado.`;
   }
 
-  return 'Como posso te chamar? E qual o nome do seu grupo?';
+  return 'Como posso te chamar?';
 }
 
 // ─── Contexto ────────────────────────────────────────────────
@@ -239,12 +229,14 @@ async function handlePreProcessado(pre, telefone, usuario) {
 function buildContexto(usuario, grupoAtivo, grupos) {
   const temNome = usuario.nome && !usuario.nome.startsWith('User_');
   let ctx = `ESTADO\nNome: ${temNome ? usuario.nome : 'NÃO CADASTRADO'}\n`;
-  ctx += `Grupos: ${grupos.length > 0 ? grupos.map(g => `[${g.id}] ${g.nome} (${g.codigo})`).join(', ') : 'NENHUM'}\n`;
+  ctx += `Rateios: ${grupos.length > 0 ? grupos.map(g => `[${g.id}] ${g.nome} (${g.codigo})`).join(', ') : 'NENHUM'}\n`;
 
   if (grupoAtivo) {
     const membros = db.getMembros(grupoAtivo.id);
     const saldo = db.getSaldoGrupo(grupoAtivo.id);
-    ctx += `\nGRUPO ATIVO: ${grupoAtivo.nome} (código: ${grupoAtivo.codigo})\n`;
+    const baseUrl = process.env.BASE_URL || 'https://splitry-bot-production.up.railway.app';
+    ctx += `\nRATEIO ATIVO: ${grupoAtivo.nome} (código: ${grupoAtivo.codigo})\n`;
+    ctx += `Link: ${baseUrl}/r/${grupoAtivo.codigo}\n`;
     ctx += `Membros (${membros.length}): ${membros.map(m => m.nome).join(', ')}\n`;
     ctx += `Saldo: ${saldo.length === 0 ? 'zerado' :
       saldo.map(s => `${s.devedor_nome} deve R$${s.total.toFixed(2)} para ${s.pago_por_nome}`).join(' | ')}\n`;
@@ -312,55 +304,32 @@ async function processAction(action, telefone, usuario, grupoAtivo, grupos) {
         if (!grupoAtivo || !action.amount) break;
         const pagadorNome = db.getUsuario(telefone)?.nome || usuario.nome;
         const membros = db.getMembros(grupoAtivo.id);
-
         let parcelas = [];
 
         if (action.split === 'equal') {
-          // Divide igual entre todos
           const parte = action.amount / membros.length;
           parcelas = membros
             .filter(m => m.telefone !== telefone)
             .map(m => ({ telefone: m.telefone, nome: m.nome, valor: parte }));
         } else if (action.split === 'custom' && action.parcelas) {
-          // Divisão personalizada — tenta casar nomes com membros
           for (const p of action.parcelas) {
             const membro = membros.find(m =>
               m.nome.toLowerCase().includes(p.nome.toLowerCase()) && m.telefone !== telefone
             );
-            if (membro) {
-              parcelas.push({ telefone: membro.telefone, nome: membro.nome, valor: p.valor });
-            }
+            if (membro) parcelas.push({ telefone: membro.telefone, nome: membro.nome, valor: p.valor });
           }
         }
 
         if (parcelas.length > 0) {
-          db.salvarGasto(grupoAtivo.id, action.description, action.amount, telefone, pagadorNome, parcelas);
+          const gastoId = db.salvarGasto(grupoAtivo.id, action.description, action.amount, telefone, pagadorNome, parcelas);
           console.log(`Gasto salvo: R$${action.amount} - ${action.description}`);
 
-          // Notifica devedores
+          // Notifica devedores via WhatsApp
+          const baseUrl = process.env.BASE_URL || 'https://splitry-bot-production.up.railway.app';
+          const link = `${baseUrl}/r/${grupoAtivo.codigo}`;
           for (const p of parcelas) {
-            const msg = `💸 *${pagadorNome}* pagou R$${action.amount.toFixed(2)} de ${action.description}\nSua parte: R$${p.valor.toFixed(2)}\n\nPara confirmar pagamento, responda: *paguei*`;
-            await enviarMensagem(p.telefone, msg);
-          }
-        }
-        break;
-      }
-
-      case 'payment_confirm': {
-        if (!grupoAtivo) break;
-        // Encontra gasto pendente mais recente para este devedor
-        const ultimo = db.getUltimoGasto(grupoAtivo.id);
-        if (ultimo) {
-          db.confirmarPagamento(ultimo.id, telefone);
-          console.log(`Pagamento confirmado: ${telefone} no gasto ${ultimo.id}`);
-
-          // Notifica o credor
-          const parcelas = db.getParcelas(ultimo.id);
-          const minhaParcela = parcelas.find(p => p.devedor_telefone === telefone);
-          if (minhaParcela) {
-            const devedorNome = db.getUsuario(telefone)?.nome || 'Alguém';
-            await enviarMensagem(ultimo.pago_por_telefone,
-              `✅ *${devedorNome}* confirmou pagamento de R$${minhaParcela.valor.toFixed(2)} de ${ultimo.descricao}`
+            await enviarMensagem(p.telefone,
+              `💸 *${pagadorNome}* pagou R$${action.amount.toFixed(2)} de ${action.description}\nSua parte: R$${p.valor.toFixed(2)}\n\nConfirme o pagamento aqui:\n${link}`
             );
           }
         }

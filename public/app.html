@@ -474,15 +474,20 @@ function enviarGasto() {
   var desc = document.getElementById('g-desc').value.trim();
   var valor = parseFloat(document.getElementById('g-valor').value);
   if (!desc || !valor) { toast('Preencha descrição e valor'); return; }
+  if (!euTelefone) { toast('Identifique-se primeiro'); return; }
   var excl = [];
   document.querySelectorAll('#g-excluir input:checked').forEach(function(c) { excl.push(c.value); });
-  var fd = new FormData();
-  fd.append('descricao', desc);
-  fd.append('valor', valor);
-  fd.append('proposto_por_telefone', euTelefone);
-  fd.append('proposto_por_nome', euNome);
-  fd.append('participantes_excluidos', JSON.stringify(excl));
-  fetch('/api/r/' + CODIGO + '/gasto', { method: 'POST', body: fd })
+  fetch('/api/r/' + CODIGO + '/gasto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      descricao: desc,
+      valor: valor,
+      proposto_por_telefone: euTelefone,
+      proposto_por_nome: euNome,
+      participantes_excluidos: excl
+    })
+  })
     .then(function(r) { return r.json(); })
     .then(function(d) {
       fecharModal('modal-gasto');

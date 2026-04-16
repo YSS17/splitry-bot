@@ -63,14 +63,14 @@ app.get('/api/r/:codigo', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Erro interno' }); }
 });
 
-app.post('/api/r/:codigo/gasto', upload.none(), async (req, res) => {
+app.post('/api/r/:codigo/gasto', async (req, res) => {
   try {
     const grupo = await db.verificarCodigo(req.params.codigo);
     if (!grupo) return res.status(404).json({ error: 'Não encontrado' });
     const { descricao, valor, proposto_por_telefone, proposto_por_nome, participantes_excluidos } = req.body;
     const membros = await db.getMembros(grupo.id);
     const ehCriador = grupo.criado_por === proposto_por_telefone;
-    const excluidos = participantes_excluidos ? JSON.parse(participantes_excluidos) : [];
+    const excluidos = Array.isArray(participantes_excluidos) ? participantes_excluidos : (participantes_excluidos ? JSON.parse(participantes_excluidos) : []);
     const incluidos = membros.filter(m => !excluidos.includes(m.telefone));
     const parte = parseFloat(valor) / incluidos.length;
     const participantes = incluidos.map(m => ({ telefone: m.telefone, nome: m.nome, valor: parte }));
